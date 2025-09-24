@@ -66,8 +66,18 @@ class OracleMetadataService:
         threshold = self._months_ago(months)
         available_tables = self._list_table_names(normalized_schema)
 
-        if table_names:
-            requested = {name.upper() for name in table_names}
+        configured_tables = self._configured_tables_for_schema(normalized_schema)
+        effective_table_names = table_names
+        if effective_table_names is None and configured_tables:
+            logger.debug(
+                "Restricting table inspection for %s to configured tables: %s",
+                normalized_schema,
+                ", ".join(configured_tables),
+            )
+            effective_table_names = configured_tables
+
+        if effective_table_names:
+            requested = {name.upper() for name in effective_table_names}
             target_tables = [name for name in available_tables if name in requested]
             missing = requested.difference(available_tables)
             if missing:
@@ -103,6 +113,7 @@ class OracleMetadataService:
         normalized_schema = schema.upper()
         months = months or self._settings.metadata_recent_months
         table_profiles: Dict[str, TableProfile] = {}
+        configured_tables = self._configured_tables_for_schema(normalized_schema)
 
         if tables:
             requested_tables = [name.upper() for name in tables]
@@ -112,6 +123,13 @@ class OracleMetadataService:
                 raise ValueError(
                     f"Tables not found in schema {normalized_schema}: {', '.join(sorted(missing))}"
                 )
+        elif configured_tables:
+            requested_tables = list(configured_tables)
+            logger.debug(
+                "Using configured tables for schema %s when generating metadata: %s",
+                normalized_schema,
+                ", ".join(requested_tables),
+            )
         else:
             requested_tables = None
 
@@ -397,6 +415,14 @@ class OracleMetadataService:
         """
         rows = self._client.fetchall(sql, {"schema": schema, "table": table})
         return [row["column_name"] for row in rows]
+
+    def _configured_tables_for_schema(self, schema: str) -> Optional[List[str]]:
+        configured_schema = self._settings.metadata_schema
+        if configured_schema and schema == configured_schema:
+            tables = list(self._settings.metadata_tables)
+            if tables:
+                return tables
+        return None
 
     def _coerce_int(self, value: Optional[object]) -> Optional[int]:
         if value is None:

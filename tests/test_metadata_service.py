@@ -165,3 +165,32 @@ def test_generate_mdl_applies_filter(service):
     manifest = service.generate_mdl(catalog="Demo", schema="TEST")
     assert len(manifest["models"]) == 1
     assert manifest["models"][0]["name"] == "ACTIVE_TABLE"
+
+
+def test_configured_tables_scope_results(service):
+    settings = Settings(
+        oracle_dsn="//testdb",
+        metadata_schema="TEST",
+        metadata_tables=("ACTIVE_TABLE", "EMPTY_TABLE"),
+    )
+    client = FakeOracleClient(now=datetime.utcnow())
+    configured_service = OracleMetadataService(client, settings)
+    tables = configured_service.get_filtered_tables("TEST")
+    assert [table.table_name for table in tables] == ["ACTIVE_TABLE"]
+
+
+def test_generate_mdl_uses_configured_tables_when_unfiltered():
+    settings = Settings(
+        oracle_dsn="//testdb",
+        metadata_schema="TEST",
+        metadata_tables=("ACTIVE_TABLE", "EMPTY_TABLE"),
+    )
+    client = FakeOracleClient(now=datetime.utcnow())
+    configured_service = OracleMetadataService(client, settings)
+    manifest = configured_service.generate_mdl(
+        catalog="Demo",
+        schema="TEST",
+        apply_usage_filter=False,
+    )
+    names = [model["name"] for model in manifest["models"]]
+    assert names == ["ACTIVE_TABLE", "EMPTY_TABLE"]

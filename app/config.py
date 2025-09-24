@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, Tuple
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -21,6 +21,14 @@ def _env_int(name: str, default: int) -> int:
     return int(value)
 
 
+def _env_list(name: str) -> Tuple[str, ...]:
+    value = os.getenv(name)
+    if value is None:
+        return ()
+    items = [item.strip() for item in value.split(",")]
+    return tuple(item for item in items if item)
+
+
 @dataclass
 class Settings:
     """Runtime settings for the metadata service."""
@@ -35,6 +43,10 @@ class Settings:
     oracle_pool_increment: int = 1
     oracle_fetch_arraysize: int = 100
     metadata_recent_months: int = 6
+    kerberos_config_file: Optional[str] = None
+    kerberos_credentials_cache: Optional[str] = None
+    metadata_schema: Optional[str] = None
+    metadata_tables: Tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.oracle_dsn:
@@ -45,6 +57,12 @@ class Settings:
             raise ValueError("oracle_pool_increment must be positive")
         if self.metadata_recent_months < 0:
             raise ValueError("metadata_recent_months must be non-negative")
+        if self.metadata_schema:
+            self.metadata_schema = self.metadata_schema.upper()
+        if self.metadata_tables is None:
+            self.metadata_tables = ()
+        if self.metadata_tables:
+            self.metadata_tables = tuple(name.upper() for name in self.metadata_tables if name)
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -62,6 +80,12 @@ class Settings:
             oracle_pool_increment=_env_int("ORACLE_POOL_INCREMENT", 1),
             oracle_fetch_arraysize=_env_int("ORACLE_FETCH_ARRAYSIZE", 100),
             metadata_recent_months=_env_int("METADATA_RECENT_MONTHS", 6),
+            kerberos_config_file=os.getenv("ORACLE_KRB5_CONFIG")
+            or os.getenv("KRB5_CONFIG"),
+            kerberos_credentials_cache=os.getenv("ORACLE_KRB5_CREDENTIALS_CACHE")
+            or os.getenv("KRB5CCNAME"),
+            metadata_schema=os.getenv("METADATA_SCHEMA"),
+            metadata_tables=_env_list("METADATA_TABLES"),
         )
 
 
