@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional
@@ -28,6 +29,15 @@ class OracleClient:
         self._settings = settings
         self._pool: Optional["oracledb.SessionPool"] = None
         self._pool_lock = threading.Lock()
+
+        if settings.kerberos_config_file:
+            os.environ["KRB5_CONFIG"] = settings.kerberos_config_file
+            logger.debug("Set KRB5_CONFIG to %s", settings.kerberos_config_file)
+        if settings.kerberos_credentials_cache:
+            os.environ["KRB5CCNAME"] = settings.kerberos_credentials_cache
+            logger.debug(
+                "Set KRB5CCNAME to %s", settings.kerberos_credentials_cache
+            )
 
         if settings.oracle_use_thick:
             logger.debug(

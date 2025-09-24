@@ -46,15 +46,23 @@ Kerberos authentication relies on Oracle's thick client. Export the following en
 export ORACLE_DSN="//db-host.example.com:1521/ORCLPDB1"
 export ORACLE_CONFIG_DIR="/opt/oracle/kerberos"    # directory containing sqlnet.ora & krb5.conf
 export ORACLE_LIB_DIR="/opt/oracle/instantclient_19_8"  # location of Instant Client libraries
+export ORACLE_KRB5_CONFIG="/etc/krb5.conf"             # optional explicit Kerberos configuration file
+export ORACLE_KRB5_CREDENTIALS_CACHE="/tmp/krb5cc_$(id -u)"  # optional credential cache location
 export ORACLE_USE_THICK=true
 export ORACLE_USE_POOL=true
 export ORACLE_POOL_MIN=1
 export ORACLE_POOL_MAX=5
 export ORACLE_POOL_INCREMENT=1
 export METADATA_RECENT_MONTHS=6
+export METADATA_SCHEMA="HR"                               # optional default schema for metadata APIs
+export METADATA_TABLES="EMPLOYEES,DEPARTMENTS"            # optional comma-separated table list
 ```
 
 The `ORACLE_CONFIG_DIR` directory should contain the Kerberos configuration (`sqlnet.ora`, `krb5.conf`). Ensure that Kerberos tickets are available (e.g., via `kinit`) for the process identity. The Oracle server must be configured to trust Kerberos-authenticated clients.
+
+When `ORACLE_KRB5_CONFIG` or `ORACLE_KRB5_CREDENTIALS_CACHE` are provided, the service sets the corresponding `KRB5_CONFIG` and `KRB5CCNAME` environment variables before initializing the Oracle client. This makes it easy to point the connector at alternate Kerberos configuration files or ticket caches without modifying the host environment.
+
+If you regularly work with a specific schema, `METADATA_SCHEMA` and `METADATA_TABLES` allow you to define the default schema and a comma-separated list of tables to inspect. When these variables are set, the metadata service automatically scopes table discovery and manifest generation to the configured tables whenever you request that schema.
 
 ## Installation
 
